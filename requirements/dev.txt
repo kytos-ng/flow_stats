@@ -12,7 +12,7 @@
     # via -r requirements/dev.in
 -e git+https://github.com/kytos-ng/python-openflow.git#egg=python-openflow
 
--e git+https://github.com/kytos-ng/sdntrace.git#egg=amlight-sdntrace
+-e git+https://github.com/kytos-ng/sdntrace.git@fix/setup_py#egg=amlight-sdntrace
     # via
     #   -r requirements/dev.in
     #   kytos
