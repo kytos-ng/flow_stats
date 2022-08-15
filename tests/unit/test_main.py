@@ -374,29 +374,26 @@ class TestMain(TestCase):
 
         self.napp.handle_stats_reply_0x01(event)
 
-        mock_handle_stats.assert_not_called()
+        mock_handle_stats.assert_not_called() 
 
     @patch("napps.amlight.flow_stats.main.Main.handle_stats_reply")
-    def test_handle_stats_reply_0x04(self, mock_handle_stats):
-        """Test handle stats reply."""
+    def test_handle_stats_received(self, mock_handle_stats):
         flow_msg = MagicMock()
         flow_msg.body = "A"
         flow_msg.multipart_type = MultipartType.OFPMP_FLOW
 
         switch_v0x04 = get_switch_mock("00:00:00:00:00:00:00:01", 0x04)
 
-        name = "kytos/of_core.v0x04.messages.in.ofpt_multipart_reply"
+        name = "kytos/of_core.flow_stats.received"
         content = {"source": switch_v0x04.connection, "message": flow_msg}
         event = get_kytos_event_mock(name=name, content=content)
-        event.content["message"] = flow_msg
 
-        self.napp.handle_stats_reply_0x04(event)
+        self.napp.handle_stats_received(event)
 
         mock_handle_stats.assert_called_once()
-
+    
     @patch("napps.amlight.flow_stats.main.Main.handle_stats_reply")
-    def test_handle_stats_reply_0x04_fail(self, mock_handle_stats):
-        """Test handle stats reply."""
+    def test_handle_stats_received_fail(self, mock_handle_stats):
         flow_msg = MagicMock()
         flow_msg.body = "A"
 
@@ -404,16 +401,14 @@ class TestMain(TestCase):
 
         switch_v0x04 = get_switch_mock("00:00:00:00:00:00:00:01", 0x04)
 
-        name = "kytos/of_core.v0x04.messages.in.ofpt_multipart_reply"
+        name = "kytos/of_core.flow_stats.received"
         content = {"source": switch_v0x04.connection, "message": flow_msg}
 
         event = get_kytos_event_mock(name=name, content=content)
-        event.content["message"] = flow_msg
 
-        self.napp.handle_stats_reply_0x04(event)
+        self.napp.handle_stats_received(event)
 
-        mock_handle_stats.assert_not_called()
-
+        mock_handle_stats.assert_not_called()    
 
 # pylint: disable=too-many-public-methods, too-many-lines
 class TestGenericFlow(TestCase):

@@ -523,13 +523,10 @@ class Main(KytosNApp):
             switch = event.source.switch
             self.handle_stats_reply(msg, switch)
 
-    @listen_to('kytos/of_core.v0x04.messages.in.ofpt_multipart_reply')
-    def on_stats_reply_0x04(self, event):
-        """Capture flow stats messages for OpenFlow 1.3."""
-        self.handle_stats_reply_0x04(event)
-
-    def handle_stats_reply_0x04(self, event):
-        """Handle flow stats messages for OpenFlow 1.3."""
+    
+    @listen_to('kytos/of_core.flow_stats.received')
+    def handle_stats_received(self, event):
+        """Capture and handle flow stats messages for OpenFlow 1.3."""
         msg = event.content['message']
         if msg.multipart_type == common04.MultipartType.OFPMP_FLOW:
             switch = event.source.switch
