@@ -523,15 +523,6 @@ class Main(KytosNApp):
             switch = event.source.switch
             self.handle_stats_reply(msg, switch)
 
-    
-    @listen_to('kytos/of_core.flow_stats.received')
-    def handle_stats_received(self, event):
-        """Capture and handle flow stats messages for OpenFlow 1.3."""
-        msg = event.content['message']
-        if msg.multipart_type == common04.MultipartType.OFPMP_FLOW:
-            switch = event.source.switch
-            self.handle_stats_reply(msg, switch)
-
     def handle_stats_reply(self, msg, switch):
         """Insert flows received in the switch list of flows."""
         try:
@@ -558,6 +549,34 @@ class Main(KytosNApp):
                     reverse=True
                 )
         if is_new_xid and is_last_part and switch.generic_flows != old_flows:
+            # Generate an event informing that flows have changed
+            event = KytosEvent('amlight/flow_stats.flows_updated')
+            event.content['switch'] = switch.dpid
+            self.controller.buffers.app.put(event)
+
+    @listen_to('kytos/of_core.flow_stats.received')
+    def handle_stats_received(self, event):
+        """Capture and handle flow stats messages for OpenFlow 1.3."""
+        msg = event.content['message']
+        switch = event.source.switch
+        if msg.multipart_type == common04.MultipartType.OFPMP_FLOW:
+            try:
+                replies_flows = event.content['replies_flows']
+                self.handle_stats_reply_received(msg, switch, replies_flows)
+            except AttributeError as err:
+                log.error(err)
+
+    def handle_stats_reply_received(self, msg, switch, replies_flows):
+        """Iterate on the replies and set the generic flows"""
+        flow = GenericFlow.from_flow_stats(replies_flows, switch.ofp_version)
+        switch.generic_new_flows.append(flow)
+        switch.generic_flows = switch.generic_new_flows
+        switch.generic_flows.sort(
+            key=lambda f: (f.priority, f.duration_sec),
+            reverse=True
+        )
+        
+        if int(msg.header.xid) != self.switch_stats_xid.get(switch.id, 0):
             # Generate an event informing that flows have changed
             event = KytosEvent('amlight/flow_stats.flows_updated')
             event.content['switch'] = switch.dpid
