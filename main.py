@@ -575,7 +575,6 @@ class Main(KytosNApp):
             key=lambda f: (f.priority, f.duration_sec),
             reverse=True
         )
-        
         if int(msg.header.xid) != self.switch_stats_xid.get(switch.id, 0):
             # Generate an event informing that flows have changed
             event = KytosEvent('amlight/flow_stats.flows_updated')
