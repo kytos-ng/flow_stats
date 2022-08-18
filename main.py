@@ -11,7 +11,6 @@ import json
 from threading import Lock
 
 import pyof.v0x01.controller2switch.common as common01
-import pyof.v0x04.controller2switch.common as common04
 from flask import jsonify, request
 from kytos.core import KytosEvent, KytosNApp, log, rest
 from kytos.core.helpers import listen_to
@@ -514,10 +513,6 @@ class Main(KytosNApp):
     @listen_to('kytos/of_core.v0x01.messages.in.ofpt_stats_reply')
     def on_stats_reply_0x01(self, event):
         """Capture flow stats messages for v0x01 switches."""
-        self.handle_stats_reply_0x01(event)
-
-    def handle_stats_reply_0x01(self, event):
-        """Handle stats replies for v0x01 switches."""
         msg = event.content['message']
         if msg.body_type == common01.StatsType.OFPST_FLOW:
             switch = event.source.switch
@@ -555,28 +550,23 @@ class Main(KytosNApp):
             self.controller.buffers.app.put(event)
 
     @listen_to('kytos/of_core.flow_stats.received')
-    def handle_stats_received(self, event):
-        """Capture and handle flow stats messages for OpenFlow 1.3."""
-        msg = event.content['message']
-        switch = event.source.switch
-        if msg.multipart_type == common04.MultipartType.OFPMP_FLOW:
-            try:
-                replies_flows = event.content['replies_flows']
-                self.handle_stats_reply_received(msg, switch, replies_flows)
-            except AttributeError as err:
-                log.error(err)
+    def on_stats_received(self, event):
+        """Capture flow stats messages for OpenFlow 1.3."""
+        self.handle_stats_received(event)
 
-    def handle_stats_reply_received(self, msg, switch, replies_flows):
+    def handle_stats_received(self, event):
+        """Handle flow stats messages for OpenFlow 1.3."""
+        switch = event.content['switch']
+        if 'replies_flows' in event.content:
+            replies_flows = event.content['replies_flows']
+            self.handle_stats_reply_received(switch, replies_flows)
+
+    def handle_stats_reply_received(self, switch, replies_flows):
         """Iterate on the replies and set the generic flows"""
-        flow = GenericFlow.from_flow_stats(replies_flows, switch.ofp_version)
-        switch.generic_new_flows.append(flow)
+        switch.generic_new_flows.extend(replies_flows)
         switch.generic_flows = switch.generic_new_flows
         switch.generic_flows.sort(
             key=lambda f: (f.priority, f.duration_sec),
             reverse=True
         )
-        if int(msg.header.xid) != self.switch_stats_xid.get(switch.id, 0):
-            # Generate an event informing that flows have changed
-            event = KytosEvent('amlight/flow_stats.flows_updated')
-            event.content['switch'] = switch.dpid
-            self.controller.buffers.app.put(event)
+        self.switch_stats_lock.setdefault(switch.id, Lock())

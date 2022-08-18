@@ -17,8 +17,6 @@ from napps.kytos.of_core.v0x04.match_fields import (
 )
 from pyof.foundation.basic_types import UBInt32
 from pyof.v0x04.common.flow_instructions import InstructionType
-from pyof.v0x01.controller2switch.common import StatsType
-from pyof.v0x04.controller2switch.common import MultipartType
 
 
 # pylint: disable=too-many-public-methods, too-many-lines
@@ -350,51 +348,15 @@ class TestMain(TestCase):
         # Check mocked flow id
         self.assertEqual(event_switch.generic_flows[0].id, 456)
 
-    @patch("napps.amlight.flow_stats.main.Main.handle_stats_reply")
-    def test_handle_stats_reply_0x01(self, mock_handle_stats):
-        """Test handle stats reply."""
-        flow_msg = MagicMock()
-        flow_msg.body = "A"
-        flow_msg.body_type = StatsType.OFPST_FLOW
-
-        switch_v0x01 = get_switch_mock("00:00:00:00:00:00:00:01", 0x01)
-
-        name = "kytos/of_core.v0x01.messages.in.ofpt_stats_reply"
-        content = {"source": switch_v0x01.connection, "message": flow_msg}
-        event = get_kytos_event_mock(name=name, content=content)
-
-        self.napp.handle_stats_reply_0x01(event)
-        mock_handle_stats.assert_called_once()
-
-    @patch("napps.amlight.flow_stats.main.Main.handle_stats_reply")
-    def test_handle_stats_reply_0x01__fail(self, mock_handle_stats):
-        """Test handle stats reply."""
-        flow_msg = MagicMock()
-        flow_msg.body = "A"
-        flow_msg.body_type = StatsType.OFPST_DESC
-
-        switch_v0x01 = get_switch_mock("00:00:00:00:00:00:00:01", 0x01)
-
-        name = "kytos/of_core.v0x01.messages.in.ofpt_stats_reply"
-        content = {"source": switch_v0x01.connection, "message": flow_msg}
-        event = get_kytos_event_mock(name=name, content=content)
-
-        self.napp.handle_stats_reply_0x01(event)
-        mock_handle_stats.assert_not_called()
-
     @patch("napps.amlight.flow_stats.main.Main.handle_stats_reply_received")
     def test_handle_stats_received(self, mock_handle_stats):
         """Test handle stats received."""
-        flow_msg = MagicMock()
-        flow_msg.body = "A"
-        flow_msg.multipart_type = MultipartType.OFPMP_FLOW
 
         switch_v0x04 = get_switch_mock("00:00:00:00:00:00:00:01", 0x04)
-        name = "kytos/of_core.flow_stats.received"
-        content = {"source": switch_v0x04.connection, "message": flow_msg}
-
         replies_flows = self._get_mocked_multipart_replies_flows()
-        content['replies_flows'] = replies_flows
+        name = "kytos/of_core.flow_stats.received"
+        content = {"switch": switch_v0x04, "replies_flows": replies_flows}
+
         event = get_kytos_event_mock(name=name, content=content)
 
         self.napp.handle_stats_received(event)
@@ -403,17 +365,11 @@ class TestMain(TestCase):
     @patch("napps.amlight.flow_stats.main.Main.handle_stats_reply_received")
     def test_handle_stats_received_fail(self, mock_handle_stats):
         """Test handle stats received."""
-        flow_msg = MagicMock()
-        flow_msg.body = "A"
-
-        flow_msg.multipart_type = MultipartType.OFPMP_PORT_DESC
 
         switch_v0x04 = get_switch_mock("00:00:00:00:00:00:00:01", 0x04)
         name = "kytos/of_core.flow_stats.received"
-        content = {"source": switch_v0x04.connection, "message": flow_msg}
+        content = {"switch": switch_v0x04}
 
-        replies_flows = self._get_mocked_multipart_replies_flows()
-        content['replies_flows'] = replies_flows
         event = get_kytos_event_mock(name=name, content=content)
 
         self.napp.handle_stats_received(event)
