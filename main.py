@@ -561,12 +561,14 @@ class Main(KytosNApp):
             replies_flows = event.content['replies_flows']
             self.handle_stats_reply_received(switch, replies_flows)
 
-    def handle_stats_reply_received(self, switch, replies_flows):
+    @classmethod
+    def handle_stats_reply_received(cls, switch, replies_flows):
         """Iterate on the replies and set the generic flows"""
-        switch.generic_new_flows.extend(replies_flows)
-        switch.generic_flows = switch.generic_new_flows
+        flows = []
+        for flow in replies_flows:
+            flows.append(GenericFlow.from_flow_stats(flow, switch.ofp_version))
+        switch.generic_flows.extend(flows)
         switch.generic_flows.sort(
             key=lambda f: (f.priority, f.duration_sec),
             reverse=True
         )
-        self.switch_stats_lock.setdefault(switch.id, Lock())
