@@ -567,6 +567,8 @@ class Main(KytosNApp):
         flows = []
         for flow in replies_flows:
             flows.append(GenericFlow.from_flow_stats(flow, switch.ofp_version))
+        if 'generic_flows' not in switch:
+            switch.generic_flows = []
         switch.generic_flows.extend(flows)
         switch.generic_flows.sort(
             key=lambda f: (f.priority, f.duration_sec),
