@@ -302,9 +302,12 @@ class TestMain(TestCase):
 
     def _get_mocked_multipart_replies_flows(self):
         """Helper method to create mock multipart replies flows"""
-        msg = MagicMock()
-        msg.header.message_type.name = 'ofpt_multipart_reply'
-        replies_flows = [msg]
+        flow = self._get_mocked_flow_base()
+
+        instruction = MagicMock()
+        flow.instructions = [instruction]
+
+        replies_flows = [flow]
         return replies_flows
 
     def _get_mocked_flow_base(self):
@@ -350,7 +353,7 @@ class TestMain(TestCase):
 
     @patch("napps.amlight.flow_stats.main.Main.handle_stats_reply_received")
     def test_handle_stats_received(self, mock_handle_stats):
-        """Test handle stats received."""
+        """Test handle_stats_received function."""
 
         switch_v0x04 = get_switch_mock("00:00:00:00:00:00:00:01", 0x04)
         replies_flows = self._get_mocked_multipart_replies_flows()
@@ -364,7 +367,8 @@ class TestMain(TestCase):
 
     @patch("napps.amlight.flow_stats.main.Main.handle_stats_reply_received")
     def test_handle_stats_received_fail(self, mock_handle_stats):
-        """Test handle stats received."""
+        """Test handle_stats_received function for
+        fail when replies_flows is not in content."""
 
         switch_v0x04 = get_switch_mock("00:00:00:00:00:00:00:01", 0x04)
         name = "kytos/of_core.flow_stats.received"
@@ -374,6 +378,20 @@ class TestMain(TestCase):
 
         self.napp.handle_stats_received(event)
         mock_handle_stats.assert_not_called()
+
+    @patch("napps.amlight.flow_stats.main.GenericFlow.from_replies_flows")
+    def test_handle_stats_reply_received(self, mock_from_flow):
+        """Test handle_stats_reply_received call."""
+        mock_from_flow.return_value = self._get_mocked_flow_base()
+
+        self.napp.controller = MagicMock()
+
+        event_switch = MagicMock()
+        event_switch.dpid = 111
+        flows_mock = self._get_mocked_multipart_replies_flows()
+        self.napp.handle_stats_reply_received(event_switch, [flows_mock])
+
+        self.assertEqual(event_switch.generic_flows[0].id, 456)
 
 
 # pylint: disable=too-many-public-methods, too-many-lines
@@ -454,6 +472,42 @@ class TestGenericFlow(TestCase):
         flow_stats.instructions = [instruction]
 
         result = GenericFlow.from_flow_stats(flow_stats, version="0x04")
+        self.assertEqual(result.actions[0].as_dict(), action_dict)
+
+    # pylint: disable=no-member
+    def test_from_replies_flows(self):
+        """Test from_replies_flows function."""
+        replies_flow = MagicMock()
+
+        replies_flow.match.oxm_match_fields = [MatchDLVLAN(42).as_of_tlv()]
+
+        action_dict = {
+            "action_type": "output",
+            "port": UBInt32(1),
+        }
+        instruction = MagicMock()
+        instruction.instruction_type = InstructionType.OFPIT_APPLY_ACTIONS
+        instruction.actions = [Action40.from_dict(action_dict).as_of_action()]
+        replies_flow.instructions = [instruction]
+
+        result = GenericFlow.from_replies_flows(replies_flow)
+
+        self.assertEqual(result.idle_timeout, replies_flow.idle_timeout.value)
+        self.assertEqual(result.hard_timeout, replies_flow.hard_timeout.value)
+        self.assertEqual(result.priority, replies_flow.priority.value)
+        self.assertEqual(result.table_id, replies_flow.table_id.value)
+        self.assertEqual(result.cookie, replies_flow.cookie.value)
+        self.assertEqual(result.duration_sec, replies_flow.duration_sec.value)
+        self.assertEqual(result.packet_count, replies_flow.packet_count.value)
+        self.assertEqual(result.byte_count, replies_flow.byte_count.value)
+        self.assertEqual(result.duration_sec, replies_flow.duration_sec.value)
+        self.assertEqual(result.packet_count, replies_flow.packet_count.value)
+        self.assertEqual(result.byte_count, replies_flow.byte_count.value)
+
+        match_expect = MatchFieldFactory.from_of_tlv(
+            replies_flow.match.oxm_match_fields[0]
+        )
+        self.assertEqual(result.match["vlan_vid"], match_expect)
         self.assertEqual(result.actions[0].as_dict(), action_dict)
 
     def test_to_dict__x01(self):

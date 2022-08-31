@@ -170,6 +170,36 @@ class GenericFlow():
                         flow.actions.append(action)
         return flow
 
+    @classmethod
+    def from_replies_flows(cls, flow04):
+        """Create a flow from a flow passed on
+        replies_flows in event kytos/of_core.flow_stats.received."""
+
+        flow = GenericFlow(version='0x04')
+        flow.idle_timeout = flow04.idle_timeout.value
+        flow.hard_timeout = flow04.hard_timeout.value
+        flow.priority = flow04.priority.value
+        flow.table_id = flow04.table_id.value
+        flow.cookie = flow04.cookie.value
+        flow.duration_sec = flow04.duration_sec.value
+        flow.packet_count = flow04.packet_count.value
+        flow.byte_count = flow04.byte_count.value
+
+        for match in flow04.match.oxm_match_fields:
+            match_field = MatchFieldFactory.from_of_tlv(match)
+            field_name = match_field.name
+            if field_name == 'dl_vlan':
+                field_name = 'vlan_vid'
+            flow.match[field_name] = match_field
+        flow.actions = []
+        for instruction in flow04.instructions:
+            if instruction.instruction_type == \
+                    InstructionType.OFPIT_APPLY_ACTIONS:
+                for of_action in instruction.actions:
+                    action = Action13.from_of_action(of_action)
+                    flow.actions.append(action)
+        return flow
+
     def do_match(self, args):
         """Match a packet against this flow."""
         if self.version == '0x01':
@@ -425,7 +455,7 @@ class Main(KytosNApp):
             'flow_id': flow_id,
             'packet_counter': flow.packet_count,
             'packet_per_second': flow.packet_count / flow.duration_sec
-            }
+        }
         return jsonify(packet_stats)
 
     @rest('bytes_count/<flow_id>')
@@ -438,7 +468,7 @@ class Main(KytosNApp):
             'flow_id': flow_id,
             'bytes_counter': flow.byte_count,
             'bits_per_second': flow.byte_count * 8 / flow.duration_sec
-            }
+        }
         return jsonify(bytes_stats)
 
     @rest('packet_count/per_flow/<dpid>')
@@ -561,16 +591,12 @@ class Main(KytosNApp):
             replies_flows = event.content['replies_flows']
             self.handle_stats_reply_received(switch, replies_flows)
 
-    @classmethod
-    def handle_stats_reply_received(cls, switch, replies_flows):
+    # pylint: disable=no-self-use
+    def handle_stats_reply_received(self, switch, replies_flows):
         """Iterate on the replies and set the generic flows"""
-        flows = []
-        for flow in replies_flows:
-            flows.append(GenericFlow.from_flow_stats(flow, switch.ofp_version))
-        if 'generic_flows' not in switch:
-            switch.generic_flows = []
-        switch.generic_flows.extend(flows)
+        switch.generic_flows = [GenericFlow.from_replies_flows(flow)
+                                for flow in replies_flows]
         switch.generic_flows.sort(
-            key=lambda f: (f.priority, f.duration_sec),
-            reverse=True
-        )
+                    key=lambda f: (f.priority, f.duration_sec),
+                    reverse=True
+                )
