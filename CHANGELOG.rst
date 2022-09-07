@@ -8,6 +8,8 @@ All notable changes to the flow_stats NApp will be documented in this file.
 Added
 =====
 
+- Added from_replies_flows function in GenericFlow to map FLOW04
+
 Changed
 =======
 
