@@ -17,185 +17,6 @@ from napps.amlight.flow_stats.utils import format_request
 from napps.kytos.of_core.v0x04.flow import Action as Action13
 from napps.kytos.of_core.v0x04.match_fields import MatchFieldFactory
 
-
-class GenericFlow():
-    """Class to represent a flow.
-
-        This class represents a flow regardless of the OF version."""
-
-    def __init__(self, version='0x04', match=None, idle_timeout=0,
-                 hard_timeout=0, duration_sec=0, packet_count=0, byte_count=0,
-                 priority=0, table_id=0xff, cookie=None, buffer_id=None,
-                 actions=None):
-        self.version = version
-        self.match = match if match else {}
-        self.idle_timeout = idle_timeout
-        self.hard_timeout = hard_timeout
-        self.duration_sec = duration_sec
-        self.packet_count = packet_count
-        self.byte_count = byte_count
-        self.priority = priority
-        self.table_id = table_id
-        self.cookie = cookie
-        self.buffer_id = buffer_id
-        self.actions = actions if actions else []
-
-    def __eq__(self, other):
-        return self.id == other.id
-
-    @property
-    def id(self):
-        # pylint: disable=invalid-name
-        """Return the hash of the object.
-        Calculates the hash of the object by using the hashlib we use md5 of
-        strings.
-        Returns:
-            string: Hash of object.
-        """
-        hash_result = hashlib.md5()
-        hash_result.update(str(self.version).encode('utf-8'))
-        for value in self.match.copy().values():
-            hash_result.update(str(value.value).encode('utf-8'))
-        hash_result.update(str(self.idle_timeout).encode('utf-8'))
-        hash_result.update(str(self.hard_timeout).encode('utf-8'))
-        hash_result.update(str(self.priority).encode('utf-8'))
-        hash_result.update(str(self.table_id).encode('utf-8'))
-        hash_result.update(str(self.cookie).encode('utf-8'))
-        hash_result.update(str(self.buffer_id).encode('utf-8'))
-
-        return hash_result.hexdigest()
-
-    def to_dict(self):
-        """Convert flow to a dictionary."""
-        flow_dict = {}
-        flow_dict['version'] = self.version
-        flow_dict.update(self.match_to_dict())
-        flow_dict['idle_timeout'] = self.idle_timeout
-        flow_dict['hard_timeout'] = self.hard_timeout
-        flow_dict['priority'] = self.priority
-        flow_dict['table_id'] = self.table_id
-        flow_dict['cookie'] = self.cookie
-        flow_dict['buffer_id'] = self.buffer_id
-        flow_dict['actions'] = []
-        for action in self.actions:
-            flow_dict['actions'].append(action.as_dict())
-
-        return flow_dict
-
-    def match_to_dict(self):
-        """Convert a match in OF 1.3 to a dictionary."""
-        # pylint: disable=consider-using-dict-items
-        match = {}
-        for name in self.match.copy():
-            match[name] = self.match[name].value
-        return match
-
-    def to_json(self):
-        """Return a json version of the flow."""
-        return json.dumps(self.to_dict())
-
-    # @staticmethod
-    # def from_dict(flow_dict):
-    #     """Create a flow from a dict."""
-    #     flow = GenericFlow()
-    #     for attr_name, value in flow_dict.items():
-    #         if attr_name == 'actions':
-    #             flow.actions = []
-    #             for action in value:
-    #                 new_action = ACTION_TYPES[int(action['action_type'])]()
-    #                 for action_attr_name,
-    #                     action_attr_value in action.items():
-    #
-    #                     setattr(new_action,
-    #                             action_attr_name,
-    #                             action_attr_value)
-    #                 flow.actions.append(new_action)
-    #         else:
-    #             setattr(flow, attr_name, value)
-    #     return flow
-
-    @classmethod
-    def from_flow_stats(cls, flow_stats, version='0x04'):
-        """Create a flow from OF flow stats."""
-        flow = GenericFlow(version=version)
-        flow.idle_timeout = flow_stats.idle_timeout.value
-        flow.hard_timeout = flow_stats.hard_timeout.value
-        flow.priority = flow_stats.priority.value
-        flow.table_id = flow_stats.table_id.value
-        flow.duration_sec = flow_stats.duration_sec.value
-        flow.packet_count = flow_stats.packet_count.value
-        flow.byte_count = flow_stats.byte_count.value
-        if version == '0x04':
-            for match in flow_stats.match.oxm_match_fields:
-                match_field = MatchFieldFactory.from_of_tlv(match)
-                field_name = match_field.name
-                if field_name == 'dl_vlan':
-                    field_name = 'vlan_vid'
-                flow.match[field_name] = match_field
-            flow.actions = []
-            for instruction in flow_stats.instructions:
-                if instruction.instruction_type == 'apply_actions':
-                    for of_action in instruction.actions:
-                        action = Action13.from_of_action(of_action)
-                        flow.actions.append(action)
-        return flow
-
-    @classmethod
-    def from_replies_flows(cls, flow04):
-        """Create a flow from a flow passed on
-        replies_flows in event kytos/of_core.flow_stats.received."""
-
-        flow = GenericFlow(version='0x04')
-        flow.idle_timeout = flow04.idle_timeout
-        flow.hard_timeout = flow04.hard_timeout
-        flow.priority = flow04.priority
-        flow.table_id = flow04.table_id
-        flow.cookie = flow04.cookie
-        flow.duration_sec = flow04.stats.duration_sec
-        flow.packet_count = flow04.stats.packet_count
-        flow.byte_count = flow04.stats.byte_count
-
-        as_of_match = flow04.match.as_of_match()
-        for match in as_of_match.oxm_match_fields:
-            match_field = MatchFieldFactory.from_of_tlv(match)
-            field_name = match_field.name
-            if field_name == 'dl_vlan':
-                field_name = 'vlan_vid'
-            flow.match[field_name] = match_field
-        flow.actions = []
-        for instruction in flow04.instructions:
-            if instruction.instruction_type == 'apply_actions':
-                for of_action in instruction.actions:
-                    flow.actions.append(of_action)
-        return flow
-
-    def do_match(self, args):
-        """Match a packet against this flow."""
-        if self.version == '0x04':
-            return self.match13(args)
-        return None
-
-    def match13(self, args):
-        """Match a packet against this flow (OF1.3)."""
-        # pylint: disable=consider-using-dict-items
-        for name in self.match.copy():
-            if name not in args:
-                return False
-            if name == 'vlan_vid':
-                field = args[name][-1]
-            else:
-                field = args[name]
-            if name not in ('ipv4_src', 'ipv4_dst', 'ipv6_src', 'ipv6_dst'):
-                if self.match[name].value != field:
-                    return False
-            else:
-                packet_ip = int(ipaddress.ip_address(field))
-                ip_addr = self.match[name].value
-                if packet_ip & ip_addr.netmask != ip_addr.address:
-                    return False
-        return self
-
-
 # pylint: disable=too-many-public-methods
 class Main(KytosNApp):
     """Main class of amlight/flow_stats NApp.
@@ -212,8 +33,6 @@ class Main(KytosNApp):
         So, if you have any setup routine, insert it here.
         """
         log.info('Starting Kytos/Amlight flow manager')
-        for switch in self.controller.switches.copy().values():
-            switch.generic_flows = []
         self.switch_stats_xid = {}
         self.switch_stats_lock = {}
 
@@ -236,7 +55,7 @@ class Main(KytosNApp):
         """Flow from given flow_id."""
         for switch in self.controller.switches.copy().values():
             try:
-                for flow in switch.generic_flows:
+                for flow in switch.flows: 
                     if flow.id == flow_id:
                         return flow
             except KeyError:
@@ -277,7 +96,7 @@ class Main(KytosNApp):
         """
         response = []
         try:
-            for flow in switch.generic_flows:
+            for flow in switch.flows: 
                 match = flow.do_match(args)
                 if match:
                     if many:
@@ -330,8 +149,8 @@ class Main(KytosNApp):
             return "Flow does not exist", 404
         packet_stats = {
             'flow_id': flow_id,
-            'packet_counter': flow.packet_count,
-            'packet_per_second': flow.packet_count / flow.duration_sec
+            'packet_counter': flow.stats.packet_count,
+            'packet_per_second': flow.stats.packet_count / flow.stats.duration_sec
             }
         return jsonify(packet_stats)
 
@@ -343,8 +162,8 @@ class Main(KytosNApp):
             return "Flow does not exist", 404
         bytes_stats = {
             'flow_id': flow_id,
-            'bytes_counter': flow.byte_count,
-            'bits_per_second': flow.byte_count * 8 / flow.duration_sec
+            'bytes_counter': flow.stats.byte_count,
+            'bits_per_second': flow.stats.byte_count * 8 / flow.stats.duration_sec
             }
         return jsonify(bytes_stats)
 
@@ -401,14 +220,14 @@ class Main(KytosNApp):
 
         # We don't have statistics persistence yet, so for now this only works
         # for start and end equals to zero
-        flows = self.controller.get_switch_by_dpid(dpid).generic_flows
+        flows = self.controller.get_switch_by_dpid(dpid).flows 
 
         for flow in flows:
             count = getattr(flow, field)
             if total:
                 count_flows += count
             else:
-                per_second = count / flow.duration_sec
+                per_second = count / flow.stats.duration_sec
                 if rate.startswith('bits'):
                     per_second *= 8
                 count_flows.append({'flow_id': flow.id,
@@ -416,37 +235,6 @@ class Main(KytosNApp):
                                     rate: per_second})
 
         return jsonify(count_flows)
-
-    def handle_stats_reply(self, msg, switch):
-        """Insert flows received in the switch list of flows."""
-        try:
-            old_flows = switch.generic_flows
-        except AttributeError:
-            old_flows = []
-        is_new_xid = (
-            int(msg.header.xid) != self.switch_stats_xid.get(switch.id, 0)
-        )
-        is_last_part = msg.flags.value % 2 == 0
-        self.switch_stats_lock.setdefault(switch.id, Lock())
-        with self.switch_stats_lock[switch.id]:
-            if is_new_xid:
-                switch.generic_new_flows = []
-                self.switch_stats_xid[switch.id] = int(msg.header.xid)
-            for flow_stats in msg.body:
-                flow = GenericFlow.from_flow_stats(flow_stats,
-                                                   switch.ofp_version)
-                switch.generic_new_flows.append(flow)
-            if is_last_part:
-                switch.generic_flows = switch.generic_new_flows
-                switch.generic_flows.sort(
-                    key=lambda f: (f.priority, f.duration_sec),
-                    reverse=True
-                )
-        if is_new_xid and is_last_part and switch.generic_flows != old_flows:
-            # Generate an event informing that flows have changed
-            event = KytosEvent('amlight/flow_stats.flows_updated')
-            event.content['switch'] = switch.dpid
-            self.controller.buffers.app.put(event)
 
     @listen_to('kytos/of_core.flow_stats.received')
     def on_stats_received(self, event):
@@ -461,10 +249,9 @@ class Main(KytosNApp):
             self.handle_stats_reply_received(switch, replies_flows)
 
     def handle_stats_reply_received(self, switch, replies_flows):
-        """Iterate on the replies and set the generic flows"""
-        switch.generic_flows = [GenericFlow.from_replies_flows(flow)
-                                for flow in replies_flows]
-        switch.generic_flows.sort(
-                    key=lambda f: (f.priority, f.duration_sec),
+        """Iterate on the replies and set the list of flows"""
+        switch.flows = replies_flows
+        switch.flows.sort(
+                    key=lambda f: (f.priority, f.stats.duration_sec),
                     reverse=True
                     )
