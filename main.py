@@ -33,8 +33,8 @@ class Main(KytosNApp):
         So, if you have any setup routine, insert it here.
         """
         log.info('Starting Kytos/Amlight flow manager')
-        self.switch_stats_xid = {}
-        self.switch_stats_lock = {}
+        for switch in self.controller.switches.copy().values():
+            switch.stat_flows = []
 
     def execute(self):
         """This method is executed right after the setup method execution.
@@ -55,7 +55,7 @@ class Main(KytosNApp):
         """Flow from given flow_id."""
         for switch in self.controller.switches.copy().values():
             try:
-                for flow in switch.flows: 
+                for flow in switch.stat_flows: 
                     if flow.id == flow_id:
                         return flow
             except KeyError:
@@ -96,7 +96,7 @@ class Main(KytosNApp):
         """
         response = []
         try:
-            for flow in switch.flows: 
+            for flow in switch.stat_flows: 
                 match = flow.do_match(args)
                 if match:
                     if many:
@@ -220,7 +220,7 @@ class Main(KytosNApp):
 
         # We don't have statistics persistence yet, so for now this only works
         # for start and end equals to zero
-        flows = self.controller.get_switch_by_dpid(dpid).flows 
+        flows = self.controller.get_switch_by_dpid(dpid).stat_flows 
 
         for flow in flows:
             count = getattr(flow, field)
@@ -250,8 +250,8 @@ class Main(KytosNApp):
 
     def handle_stats_reply_received(self, switch, replies_flows):
         """Iterate on the replies and set the list of flows"""
-        switch.flows = replies_flows
-        switch.flows.sort(
+        switch.stat_flows = replies_flows
+        switch.stat_flows.sort(
                     key=lambda f: (f.priority, f.stats.duration_sec),
                     reverse=True
                     )
