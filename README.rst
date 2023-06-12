@@ -10,6 +10,13 @@
     <h3><a href="https://kytos-ng.github.io/api/flow_stats.html">OpenAPI Docs</a></h3>
   </div>
 
+  <div align="center">
+   <h1><code>flow_stats will be deprecated</code></h1>
+  </div>
+  <div>
+  <a href="https://github.com/kytos-ng/kytos_stats">kytos_stats</a>
+   is encouraged to be used instead of this NApp
+  </div>
 
 Overview
 ========
