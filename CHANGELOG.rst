@@ -23,9 +23,18 @@ Fixed
 Security
 ========
 
+[2023.1.0] - 2023-06-27
+***********************
+
 General Information
 ===================
 - ``@rest`` endpoints are now run by ``starlette/uvicorn`` instead of ``flask/werkzeug``.
+
+
+Deprecated
+==========
+
+- After version ``2023.1``, you should migrate to ``kytos_stats``. This is the last major version that ``flow_stats`` will be maintained.
 
 
 [2022.3.0] - 2023-01-23
