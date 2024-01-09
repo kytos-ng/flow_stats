@@ -3,19 +3,17 @@
 .. raw:: html
 
   <div align="center">
-    <h1><code>amlight/flow_stats</code></h1>
-
-    <strong> Napp responsible for providing flows statistics. </strong>
-
-    <h3><a href="https://kytos-ng.github.io/api/flow_stats.html">OpenAPI Docs</a></h3>
+    <h1><code>flow_stats is deprecated⚠️</code></h1>
+    <div>
+    <a href="https://github.com/kytos-ng/kytos_stats">kytos_stats</a>
+     is encouraged to be used instead of this NApp
+    </div>
   </div>
 
   <div align="center">
-   <h1><code>flow_stats will be deprecated</code></h1>
-  </div>
-  <div>
-  <a href="https://github.com/kytos-ng/kytos_stats">kytos_stats</a>
-   is encouraged to be used instead of this NApp
+    <h1><code>amlight/flow_stats</code></h1>
+
+    <strong> Napp responsible for providing flows statistics. </strong>
   </div>
 
 Overview
